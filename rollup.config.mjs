@@ -174,7 +174,12 @@ const BASE_CONFIG = {
     'obsidian',
     '@zsviczian/excalidraw',
     'react',
-    'react-dom'
+    'react-dom',
+    // Node.js builtins for MCP bridge server (available in Electron runtime)
+    'http',
+    'fs',
+    'path',
+    'os',
   ],
 };
 
@@ -248,11 +253,43 @@ const LIB_CONFIG = {
   ),
 };
 
+const SHIM_CONFIG = {
+  input: "src/mcp/McpBridgeShim.ts",
+  external: [
+    "node:fs",
+    "node:path",
+    "node:os",
+  ],
+  output: {
+    file: "dist/mcp-shim.js",
+    sourcemap: false,
+    format: "cjs",
+    name: "Excalidraw MCP Shim",
+  },
+  plugins: [
+    typescript({
+      tsconfig: "tsconfig.json",
+      compilerOptions: {
+        module: "es2020",
+        target: "es2022",
+      },
+    }),
+    json(),
+    replace({
+      preventAssignment: true,
+      "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),
+    }),
+    commonjs(),
+    nodeResolve({ browser: false, preferBuiltins: true }),
+    ...(isProd ? [terser({ maxWorkers: 4 })] : []),
+  ],
+};
+
 let config = [];
 if (process.env.NODE_ENV === "lib") {
   config.push(LIB_CONFIG);
 } else {
-  config.push(BUILD_CONFIG);
+  config.push(BUILD_CONFIG, SHIM_CONFIG);
 }
 
 export default config;

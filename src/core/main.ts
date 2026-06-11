@@ -131,6 +131,7 @@ import {
 import { URLs } from "src/constants/safeUrls";
 import { hideElement, setButtonBgColor } from "src/utils/styleUtils";
 import { installButton } from "src/utils/scriptLibraryUtils";
+import { McpBridgeServer } from "../mcp/McpBridgeServer";
 
 declare const PLUGIN_VERSION: string;
 declare const INITIAL_TIMESTAMP: number;
@@ -627,6 +628,7 @@ export default class ExcalidrawPlugin extends Plugin {
   public popScope: (() => void) | null = null;
   public lastPDFLeafID: string = null;
   public forceExcalidrawViewMode: boolean = false;
+  public mcpBridge: McpBridgeServer | null = null;
 
   constructor(app: App, manifest: PluginManifest) {
     super(app, manifest);
@@ -1013,6 +1015,18 @@ export default class ExcalidrawPlugin extends Plugin {
     this.logStartupEvent("Script install-codeblock processor registered");
 
     this.commandManager.initialize();
+
+    try {
+      this.mcpBridge = new McpBridgeServer(this);
+      void this.mcpBridge.start().then(() => {
+        this.logStartupEvent("MCP Bridge Server started");
+      }).catch((err) => {
+        console.error("Error starting MCP Bridge Server:", err);
+      });
+    } catch (e) {
+      new Notice("Error starting MCP Bridge Server", 6000);
+      console.error("Error starting MCP Bridge Server", e);
+    }
 
     try {
       this.registerEditorSuggest(new FieldSuggester(this));
@@ -1725,6 +1739,11 @@ export default class ExcalidrawPlugin extends Plugin {
 
     this.activeExcalidrawView = null;
     this.lastActiveExcalidrawFilePath = null;
+
+    if (this.mcpBridge) {
+      this.mcpBridge.stop();
+      this.mcpBridge = null;
+    }
 
     this.settings = null;
     //pluginPackages = null;
